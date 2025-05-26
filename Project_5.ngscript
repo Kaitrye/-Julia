@@ -1,0 +1,282 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {
+    "kernelspec": {
+      "name": "ijulia-1.9",
+      "display_name": "IJulia 1.9.3",
+      "language": "julia"
+    },
+    "language_info": {
+      "name": "julia",
+      "file_extension": ".jl",
+      "version": "1.9.3"
+    },
+    "engee": {}
+  },
+  "cells": [
+    {
+      "id": "e6833938",
+      "cell_type": "code",
+      "source": [
+        "using QuadGK\r\nusing ForwardDiff\r\nusing LinearAlgebra\r\n\r\nfunction KF(f, p, a, b, α, β)\r\n\r\n    x1, x2, x3 = a, (a + b) / 2, b\r\n    nodes = [x1, x2, x3]\r\n\r\n    # Моменты\r\n    μ0 = quadgk(x -> p(x), a, b; rtol=1e-12)[1]\r\n    μ1 = quadgk(x -> x * p(x), a, b; rtol=1e-12)[1]\r\n    μ2 = quadgk(x -> x^2 * p(x), a, b; rtol=1e-12)[1]\r\n\r\n    # Альтернативный способ: через явные формулы\r\n    z1, z2, z3 = x1, x2, x3\r\n    A1 = (μ2 - μ1*(z2 + z3) + μ0*z2*z3) / ((z2 - z1)*(z3 - z1))\r\n    A2 = -(μ2 - μ1*(z1 + z3) + μ0*z1*z3) / ((z2 - z1)*(z3 - z2))\r\n    A3 = (μ2 - μ1*(z2 + z1) + μ0*z2*z1) / ((z3 - z2)*(z3 - z1))\r\n\r\n    A = [A1, A2, A3]  # заменяет решение СЛАУ\r\n\r\n    approx_integral = sum(A[i] * f(nodes[i]) for i in 1:3)\r\n    exact_integral = quadgk(x -> f(x) * p(x), a, b; rtol=1e-12)[1]\r\n\r\n    # Методическая и точная погрешность\r\n    f3(x) = ForwardDiff.derivative(x -> ForwardDiff.derivative(\r\n                x -> ForwardDiff.derivative(f, x), x), x)\r\n\r\n    m_error = method_error(f3, p, a, b, α, β, nodes)\r\n    abs_error = abs(exact_integral - approx_integral)\r\n\r\n    return A, approx_integral, exact_integral, m_error, abs_error\r\nend\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "KF (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 163
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "1b6e4663",
+      "cell_type": "code",
+      "source": [
+        "function method_error(f_n::Function, p, a, b, α, β, nodes)\r\n\r\n    n = length(nodes)\r\n    ω(x) = prod(x - i for i in nodes)\r\n    fun(x) = abs(p(x) * ω(x))\r\n\r\n    M_n = maximum([abs(f_n(x)) for x in range(a, b, length=100)])\r\n\r\n    I = quadgk(fun, a, b)[1]\r\n\r\n    return M_n * I / factorial(n)\r\nend\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "method_error (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 164
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "590e8992",
+      "cell_type": "code",
+      "source": [
+        "function comp_KF(f, p, a, b, α, β, n)\r\n    h = (b - a) / n\r\n    total = 0.0\r\n\r\n    for i in 0:n-1\r\n        xl = a + i*h\r\n        xr = xl + h\r\n        approx = KF(f, p, xl, xr, α, β)[2]\r\n        total += approx\r\n        #println(\"Проверка $n: $total\")\r\n    end\r\n\r\n    return total\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "comp_KF (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 165
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "02a70bdc",
+      "cell_type": "code",
+      "source": [
+        "function adapt_KF(f, p, a, b, α, β; eps=1e-6, max_n = 1_000_000, n_0 = 1)\r\n    results = []\r\n    ns = n_0 * [1, 2, 4]\r\n\r\n    for n in ns\r\n        push!(results, comp_KF(f, p, a, b, α, β, n))\r\n    end\r\n\r\n    while true\r\n        n_new = ns[end]*2\r\n        I_new = comp_KF(f, p, a, b, α, β, n_new)\r\n        push!(results, I_new)\r\n        push!(ns, n_new)\r\n\r\n        # Эйткен (по 3 последним)\r\n        L = 2  # во сколько раз уменьшается шаг\r\n        S1, S2, S3 = results[end-2], results[end-1], results[end]\r\n        \r\n        r = (S3 - S2) / (S2 - S1)\r\n        m = -log(abs(r)) / log(L)\r\n        println(\"Скорость сходимости m ≈ $m\")\r\n\r\n        # Ричардсон\r\n        err = abs(results[end] - results[end-1]) / (2^m - 1)\r\n        println(\"n = $n_new, I ≈ $(results[end]), ошибка ≈ $err\")\r\n\r\n        if abs(err) < eps\r\n            return results[end]\r\n        end\r\n\r\n        if n_new > max_n\r\n            error(\"Не удалось достичь требуемой точности с n ≤ $max_n\")\r\n        end\r\n    end\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "adapt_KF (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 166
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "5629f251",
+      "cell_type": "code",
+      "source": [
+        "function hopt_KF(f, p, a, b, α, β; eps=1e-6)\r\n    ns = [1, 2, 4]\r\n    results = [comp_KF(f, p, a, b, α, β, n) for n in ns]\r\n    hs = [(b - a) / n for n in ns]\r\n    L = 2\r\n\r\n    S1, S2, S3 = results\r\n    h1, h2, h3 = hs\r\n\r\n    Δ1 = S2 - S1\r\n    Δ2 = S3 - S2\r\n\r\n    if iszero(Δ2 - Δ1)\r\n        error(\"Недостаточная точность на грубых сетках — невозможно оценить скорость сходимости.\")\r\n    end\r\n\r\n    # Эйткен\r\n    r = Δ2 / Δ1\r\n    m = -log(abs(r)) / log(L)\r\n    println(\"Скорость сходимости m ≈ $m\")\r\n\r\n    if abs(Δ2) < 1e-14\r\n        error(\"Разность между S3 и S2 слишком мала: err = 0, hopt = ∞\")\r\n    end\r\n\r\n    # Ричардсон\r\n    err = abs(Δ2) / (L^m - 1)\r\n    println(\"Ошибка на грубой сетке ≈ $err\")\r\n    \r\n    hopt = h3 * (eps / err)^(1 / m)\r\n\r\n    if !isfinite(hopt) || hopt <= 0\r\n        error(\"Получен неверный hopt: $hopt.\")\r\n    end\r\n\r\n    nopt = Int(ceil((b - a) / hopt))\r\n    nopt += nopt % 2  # сделать чётным\r\n    println(\"Оптимальный шаг hopt ≈ $hopt, nopt = $nopt\")\r\n\r\n    return nopt, hopt\r\nend\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "hopt_KF (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 169
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "af9dc617",
+      "cell_type": "code",
+      "source": [
+        "using QuadGK\r\nusing LinearAlgebra\r\nusing Polynomials\r\n\r\n# Вычисление моментов\r\nfunction get_moments(p, a, b, α, β, maxk)\r\n    μ = zeros(maxk+1)\r\n    for k in 0:maxk\r\n        μ[k+1] = quadgk(x -> x^k * p(x,a,b,α,β), a, b; rtol=1e-12)[1]\r\n    end\r\n    return μ\r\nend\r\n\r\n# Построение матрицы Якоби из моментов\r\nfunction build_J(μ)\r\n    n = 3\r\n    H = [μ[i+j-1] for i in 1:n, j in 1:n]\r\n    H1 = [μ[i+j] for i in 1:n, j in 1:n]\r\n\r\n    λ, V = eigen(H \\ H1)\r\n    \r\n    nodes = sort(λ)\r\n    return nodes\r\nend\r\n\r\n# Вычисление весов\r\nfunction get_weights(nodes, μ)\r\n    n = length(nodes)\r\n    A = zeros(n)\r\n\r\n    # Система для весов\r\n    V = [nodes[j]^(i-1) for i in 1:n, j in 1:n]\r\n    A = V \\ μ[1:n]\r\n    return A\r\nend\r\n\r\nfunction gauss_KF(f, p, a, b, α, β)\r\n    μ = get_moments(p, a, b, α, β, 5)\r\n    nodes = build_J(μ)\r\n    weights = get_weights(nodes, μ)\r\n\r\n    approx = sum(weights[i] * f(nodes[i]) for i in 1:3)\r\n    return weights, approx\r\nend\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "gauss_KF (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 173
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "f5a6eb76",
+      "cell_type": "code",
+      "source": [
+        "f(x) = 4.5 * cos(7x) * exp(-2x/3) + 1.4 * sin(1.5x) * exp(-x/3) + 3\r\na = 2.1\r\nb = 3.3\r\nα = 2/5\r\nβ = 0\r\np(x) = (x - a)^(-α) * (b - x)^(-β)\r\n\r\nA, approx, exact, m_err, abs_err = KF(f, p, a, b, α, β)\r\n\r\nprintln(\"Коэффициенты квадратурной формулы: \", A)\r\nprintln(\"Приближённое значение интеграла: \", approx)\r\nprintln(\"Точное значение интеграла: \", exact)\r\nprintln(\"Методическая погрешность: \", m_err)\r\nprintln(\"Точная погрешность: \", abs_err)\r\nprintln()\r\n\r\napprox = adapt_KF(f, p, a, b, α, β)\r\nprintln(\"Приближённое значение интеграла c точностью 1e-6: \", approx)\r\nprintln()\r\n\r\nnopt = hopt_KF(f, p, a, b, α, β)[1]\r\nprintln()\r\n\r\napprox = adapt_KF(f, p, a, b, α, β, n_0 = nopt)\r\nprintln(\"Приближённое значение интеграла c точностью 1e-6 c nopt: \", approx)\r\nprintln()\r\n\r\napprox = gauss_KF(f, p, a, b, α, β)[2]\r\nprintln(\"Приближённое значение интеграла по формулам Гаусса: \", approx)\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Коэффициенты квадратурной формулы: [0.6257375278022516, 1.0726929055094603, 0.1609039358264127]\nПриближённое значение интеграла: 5.410653820993932\nТочное значение интеграла: 4.461512704342535\nМетодическая погрешность: 4.821231045047852\nТочная погрешность: 0.949141116651397\n\nСкорость сходимости m ≈ 6.833717584236995\nn = 8, I ≈ 4.46120525773206, ошибка ≈ 2.343137960005599e-6\nСкорость сходимости m ≈ -0.008328282769484933\nn = 16, I ≈ 4.461471719370319, ошибка ≈ -0.04629208040399076\nСкорость сходимости m ≈ 2.860082149629102\nn = 32, I ≈ 4.461508419210803, ошибка ≈ 5.862063687647671e-6\nСкорость сходимости m ≈ 3.2422474222710287\nn = 64, I ≈ 4.461512297591612, ошибка ≈ 4.582927707834388e-7\nПриближённое значение интеграла c точностью 1e-6: 4.461512297591612\n\nСкорость сходимости m ≈ 4.927307901635068\nОшибка на грубой сетке ≈ 0.0010268972504532102\nОптимальный шаг hopt ≈ 0.07343956623110538, nopt = 18\n\nСкорость сходимости m ≈ 3.4059937448142055\nn = 144, I ≈ 4.461512680227917, ошибка ≈ 2.5699793730270305e-8\nПриближённое значение интеграла c точностью 1e-6 c nopt: 4.461512680227917\n\nПриближённое значение интеграла по формулам Гаусса: 4.608624872632719\n"
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 694.4000244140625
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    }
+  ]
+}

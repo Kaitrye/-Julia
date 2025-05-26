@@ -1,0 +1,344 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {
+    "kernelspec": {
+      "name": "ijulia-1.9",
+      "display_name": "IJulia 1.9.3",
+      "language": "julia"
+    },
+    "language_info": {
+      "name": "julia",
+      "file_extension": ".jl",
+      "version": "1.9.3"
+    },
+    "engee": {}
+  },
+  "cells": [
+    {
+      "id": "736f7f3b",
+      "cell_type": "markdown",
+      "source": [
+        "Реализуем функцию для LU-разложения матрицы A c выбором ведущего элемента по столбцу или по всей матрице (по умолчанию - по столбцу)"
+      ],
+      "attachments": {},
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false
+        }
+      }
+    },
+    {
+      "id": "2c8110f3",
+      "cell_type": "code",
+      "source": [
+        "using LinearAlgebra, Random # Подключаем библиотеки"
+      ],
+      "execution_count": 0,
+      "outputs": [],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "297f45a5",
+      "cell_type": "code",
+      "source": [
+        "function LU_decomp(A::Matrix{Float64}, pivoting::Symbol=:column)\r\n    n = size(A, 1) # размер матрицы [n, n]\r\n    L = Matrix{Float64}(I, n, n) \r\n    U = copy(A)\r\n    P = Matrix{Float64}(I, n, n) \r\n    Q = Matrix{Float64}(I, n, n) \r\n    row_swaps = 0\r\n    col_swaps = 0\r\n\r\n    for k in 1:n-1\r\n        if pivoting == :column\r\n            pivot_row = k + argmax(abs.(U[k:end, k])) - 1\r\n\r\n            # При необходимости меняем местами строки\r\n            if pivot_row != k\r\n                row_swaps += 1\r\n                U[[k, pivot_row], :] = U[[pivot_row, k], :]\r\n                P[[k, pivot_row], :] = P[[pivot_row, k], :]\r\n\r\n                if k > 1\r\n                    L[[k, pivot_row], 1:k-1] = L[[pivot_row, k], 1:k-1]\r\n                end\r\n            end\r\n\r\n        elseif pivoting == :full\r\n            submatrix = abs.(U[k:end, k:end])\r\n            ind = argmax(submatrix)\r\n            i, j = Tuple(CartesianIndices(size(submatrix))[ind])\r\n            pivot_row, pivot_col = i + k - 1, j + k - 1\r\n\r\n            # При необходимости меняем местами строки\r\n            if pivot_row != k\r\n                row_swaps += 1\r\n                U[[k, pivot_row], :] = U[[pivot_row, k], :]\r\n                P[[k, pivot_row], :] = P[[pivot_row, k], :]\r\n\r\n                if k > 1\r\n                    L[[k, pivot_row], 1:k-1] = L[[pivot_row, k], 1:k-1]\r\n                end\r\n            end\r\n\r\n            # При необходимости меняем местами столбцы\r\n            if pivot_col != k\r\n                col_swaps += 1\r\n                U[:, [k, pivot_col]] = U[:, [pivot_col, k]]\r\n                Q[:, [k, pivot_col]] = Q[:, [pivot_col, k]]\r\n            end\r\n        end\r\n\r\n        for i in k+1:n\r\n            L[i, k] = U[i, k] / U[k, k]\r\n            U[i, k:n] .-= L[i, k] * U[k, k:n]\r\n        end\r\n    end\r\n\r\n    return L, U, P, Q, row_swaps, col_swaps\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "LU_decomp (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 3
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "b08ba90b",
+      "cell_type": "code",
+      "source": [
+        "function LU_rang(A::Matrix{Float64}, pivoting::Symbol = :column)\r\n    m, n = size(A) # размер матрицы [m, n]\r\n    U = copy(A)\r\n    L = Matrix{Float64}(I, m, m)\r\n    P = Matrix{Float64}(I, m, m)\r\n    Q = Matrix{Float64}(I, n, n)\r\n\r\n    r = 0\r\n    k = 1\r\n    last_col = n\r\n\r\n    while k <= min(m, last_col)\r\n        if pivoting == :column\r\n            pivot_row = k - 1 + argmax(abs.(U[k:end, k]))\r\n\r\n            if isapprox(U[pivot_row, k], 0.0; atol=1e-12)\r\n                if k != last_col\r\n                    U[:, [k, last_col]] = U[:, [last_col, k]]\r\n                    Q[:, [k, last_col]] = Q[:, [last_col, k]]\r\n                end\r\n                last_col -= 1\r\n                continue\r\n            end\r\n\r\n            # При необходимости переставляем строки\r\n            if pivot_row != k\r\n                U[[k, pivot_row], :] = U[[pivot_row, k], :]\r\n                P[[k, pivot_row], :] = P[[pivot_row, k], :]\r\n                if k > 1\r\n                    L[[k, pivot_row], 1:k-1] = L[[pivot_row, k], 1:k-1]\r\n                end\r\n            end\r\n\r\n        elseif pivoting == :full\r\n            sub = abs.(U[k:end, k:end])\r\n            ind = argmax(sub)\r\n            i, j = Tuple(CartesianIndices(sub)[ind])\r\n            pivot_row, pivot_col = i + k - 1, j + k - 1\r\n\r\n            if isapprox(U[pivot_row, pivot_col], 0.0; atol=1e-12)\r\n                k += 1\r\n                continue\r\n            end\r\n\r\n            # При необходимости переставляем строки\r\n            if pivot_row != k\r\n                U[[k, pivot_row], :] = U[[pivot_row, k], :]\r\n                P[[k, pivot_row], :] = P[[pivot_row, k], :]\r\n                if k > 1\r\n                    L[[k, pivot_row], 1:k-1] = L[[pivot_row, k], 1:k-1]\r\n                end\r\n            end\r\n\r\n            # При необходимости переставляем столбцы\r\n            if pivot_col != k\r\n                U[:, [k, pivot_col]] = U[:, [pivot_col, k]]\r\n                Q[:, [k, pivot_col]] = Q[:, [pivot_col, k]]\r\n            end\r\n        end\r\n\r\n        for i in k+1:m\r\n            L[i, k] = U[i, k] / U[k, k]\r\n            U[i, k:end] .-= L[i, k] * U[k, k:end]\r\n        end\r\n\r\n        r += 1\r\n        k += 1\r\n    end\r\n\r\n    L = L[:, 1:r]\r\n    U = U[1:r, :]\r\n\r\n    return L, U, P, Q, r\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "LU_rang (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 9
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "65b00385",
+      "cell_type": "markdown",
+      "source": [],
+      "attachments": {},
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false
+        }
+      }
+    },
+    {
+      "id": "d319ffb5",
+      "cell_type": "code",
+      "source": [
+        "function solveLU_ex(A::Matrix{Float64}, b::Vector{Float64}, pivoting::Symbol = :column)\r\n    L, U, P, Q, r = LU_rang(A, pivoting)\r\n    _, _, _, _, r_ex = LU_rang(hcat(A, b), pivoting)\r\n\r\n    if r != r_ex\r\n        return nothing  # Система несовместна\r\n    end\r\n\r\n    m, n = size(A)\r\n\r\n    # Прямой ход для Гаусса (только первые r уравнений)\r\n    Pb = P * b\r\n    y = zeros(r)\r\n    for i in 1:r\r\n        y[i] = Pb[i] - sum(L[i, 1:i-1] .* y[1:i-1])\r\n    end\r\n\r\n    # Обратный ход Гаусса (только первые r переменных)\r\n    z = zeros(r)\r\n    for i in r:-1:1\r\n        if isapprox(U[i, i], 0)\r\n            z[i] = 0.0\r\n        else\r\n            z[i] = (y[i] - sum(U[i, i+1:r] .* z[i+1:r])) / U[i, i]\r\n        end\r\n    end\r\n\r\n    x_basic = vcat(z, zeros(n - r))  # свободные переменные = 0\r\n    x = Q * x_basic\r\n\r\n    return x\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "solveLU_ex (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 5
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "b832a147",
+      "cell_type": "markdown",
+      "source": [
+        "Реализуем с помощью LU-разложения дополнительные функции."
+      ],
+      "attachments": {},
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false
+        }
+      }
+    },
+    {
+      "id": "c888c2e9",
+      "cell_type": "code",
+      "source": [
+        "# Нахождение определителя\r\nfunction detLU(A::Matrix{Float64}, pivoting::Symbol=:column)\r\n    _, U, P, _, row_swaps, col_swaps = LU_decomp(A, pivoting)\r\n    result = prod(diag(U))\r\n\r\n    if pivoting == :column\r\n        return (-1)^row_swaps * result\r\n    end\r\n\r\n    if pivoting == :full\r\n        return (-1)^(row_swaps + col_swaps) * result\r\n    end\r\nend\r\n\r\n# Решение СЛАУ Ax = b\r\nfunction solveLU(A::Matrix{Float64}, b::Vector{Float64}, pivoting::Symbol=:column)\r\n    L, U, P, Q = LU_decomp(A, pivoting)\r\n\r\n    # При необходимости переставляем строки\r\n    Pb = P * b\r\n\r\n    # Прямой ход Гаусса\r\n    n = length(Pb)\r\n    y = zeros(Float64, n)\r\n\r\n    for i in 1:n\r\n        y[i] = Pb[i] - sum(L[i,1:i-1] .* y[1:i-1])\r\n    end\r\n\r\n    # Обратный ход Гаусса\r\n    x = zeros(Float64, n)\r\n\r\n    for i in n:-1:1\r\n        x[i] = (y[i] - sum(U[i,i+1:end] .* x[i+1:end])) / U[i,i]\r\n    end\r\n\r\n    # При необходимости переставляем столбцы\r\n    if Q != Matrix{Float64}(I, size(Q)...)\r\n        x = Q * x\r\n    end\r\n\r\n    return x\r\nend\r\n\r\n# Вариант с уже проведенным LU-разложением\r\nfunction solveLU(L::Matrix{Float64}, U::Matrix{Float64}, P::Matrix{Float64}, Q::Matrix{Float64}, b::Vector{Float64})\r\n    # При необходимости переставляем строки\r\n    Pb = P * b\r\n\r\n    # Прямой ход Гаусса\r\n    n = length(Pb)\r\n    y = zeros(Float64, n)\r\n\r\n    for i in 1:n\r\n        y[i] = Pb[i] - sum(L[i,1:i-1] .* y[1:i-1])\r\n    end\r\n\r\n    # Обратный ход Гаусса\r\n    x = zeros(Float64, n)\r\n\r\n    for i in n:-1:1\r\n        x[i] = (y[i] - sum(U[i,i+1:end] .* x[i+1:end])) / U[i,i]\r\n    end\r\n\r\n    # При необходимости переставляем столбцы\r\n    if Q != Matrix{Float64}(I, size(Q)...)\r\n        x = Q * x\r\n    end\r\n\r\n    return x\r\nend\r\n\r\n# Обратная матрица\r\nfunction invLU(A::Matrix{Float64}, pivoting::Symbol=:column)\r\n    L, U, P, Q = LU_decomp(A, pivoting)\r\n\r\n    n = size(L, 1)\r\n    E = Matrix{Float64}(I, n, n)\r\n    invA = zeros(Float64, n, n)\r\n\r\n    for i in 1:n\r\n        e = E[:, i]\r\n        invA[:, i] = solveLU(L, U, P, Q, e)\r\n    end\r\n\r\n    return invA\r\nend\r\n\r\n# Число обусловленности\r\nfunction condLU(A::Matrix{Float64}, pivoting::Symbol=:column)\r\n    invA = invLU(A, pivoting)\r\n    return norm(A) * norm(invA)\r\nend\r\n\r\n# Число обусловленности (более точный вариант)\r\nfunction condS(A::Matrix{Float64}, pivoting::Symbol=:column)\r\n    S = svd(A).S\r\n    return maximum(S) / minimum(S)\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "condS (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 6
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "47151b4d",
+      "cell_type": "markdown",
+      "source": [
+        "Выполним проверку написанной функции с разными примерами."
+      ],
+      "attachments": {},
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false
+        }
+      }
+    },
+    {
+      "id": "0cd7d289",
+      "cell_type": "code",
+      "source": [
+        "using Printf\r\n\r\n# Проверка LU-разложения\r\nfunction check(A, L, U, P, Q)\r\n    if Q == Matrix{Float64}(I, size(Q)...)\r\n        println(\"Проверка: LU ≈ P*A: \", isapprox(L * U, P * A))\r\n    else\r\n        println(\"Проверка: LU ≈ P*A*Q: \", isapprox(L * U, P * A * Q))\r\n    end\r\nend\r\n\r\nfunction print_matrix_str(A)\r\n    for row in eachrow(A)\r\n        println(join([@sprintf(\"%10.3f\", x) for x in row], \" \"))\r\n    end\r\nend\r\n\r\n# Основная демонстрация\r\nfunction demo(n=5, pivoting=:column)\r\n    println(\"—\"^50)\r\n    println(\"Размерность матрицы: $n, выбор главного элемента: $pivoting\")\r\n    A = randn(n, n)\r\n    L, U, P, Q = LU_decomp(A, pivoting)\r\n    \r\n    print_matrix_str(A)\r\n    println()\r\n    print_matrix_str(L)\r\n    println()\r\n    print_matrix_str(U)\r\n    check(A, L, U, P, Q)\r\n\r\n    # Определитель\r\n    detA = detLU(A)\r\n    println(\"Определитель det(A): $detA \", isapprox(detA, det(A)))\r\n\r\n    # Решение СЛАУ\r\n    b = randn(n)\r\n    x = solveLU(A, b)\r\n    println(\"Проверка Ax ≈ b: \", isapprox(A * x, b))\r\n\r\n    # Обратная матрица\r\n    A_inv = invLU(A)\r\n    E = Matrix{Float64}(I, n, n)\r\n    println(\"Проверка A*A⁻¹ ≈ E: \", isapprox(A * A_inv, E))\r\n    println(\"Проверка A⁻¹*A ≈ E: \", isapprox(A_inv * A, E))\r\n\r\n    # Число обусловленности\r\n    #A = [1. 1.; 3. 4.]\r\n    cond_A = condLU(A)\r\n    condS_A = condS(A)\r\n    println(\"Число обусловленности condLU(A): $cond_A, condS(A): $condS_A, cond(A): \", cond(A), \" \", isapprox(cond_A, cond(A)))\r\n    println(\"—\"^50)\r\nend\r\n\r\ndemo(5)"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "——————————————————————————————————————————————————\nРазмерность матрицы: 5, выбор главного элемента: column\n     1.314     -0.304     -0.112      1.090     -0.696\n    -1.844     -0.761      0.927      1.114     -0.719\n     0.874      1.366     -0.906     -0.729     -1.133\n     0.034     -0.069     -0.198      0.946      0.162\n     0.891      0.725     -0.729      0.646      1.364\n\n     1.000      0.000      0.000      0.000      0.000\n    -0.474      1.000      0.000      0.000      0.000\n    -0.018     -0.082      1.000      0.000      0.000\n    -0.713     -0.842     -0.709      1.000      0.000\n    -0.483      0.355      0.524      0.318      1.000\n\n    -1.844     -0.761      0.927      1.114     -0.719\n     0.000      1.005     -0.467     -0.201     -1.474\n     0.000      0.000     -0.220      0.949      0.027\n     0.000      0.000      0.000      2.388     -2.429\n     0.000      0.000      0.000      0.000      2.298\nПроверка: LU ≈ P*A: true\nОпределитель det(A): -2.237130824501221 true\nПроверка Ax ≈ b: true\nПроверка A*A⁻¹ ≈ E: true\nПроверка A⁻¹*A ≈ E: true\nЧисло обусловленности condLU(A): 30.458002229139982, condS(A): 21.82590430911236, cond(A): 21.82590430911235 false\n——————————————————————————————————————————————————\n"
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "dd58f100",
+      "cell_type": "code",
+      "source": [
+        "# Основная демонстрация\r\nfunction demo2(n=5, pivoting=:column)\r\n    println(\"—\"^50)\r\n    println(\"Размерность матрицы: $n, выбор главного элемента: $pivoting\")\r\n    A = randn(n, n)\r\n    A[:, 1] = A[:, 2]\r\n    #A[n-2, :] = A[n, :]\r\n    #A[2, :] = A[n, :]\r\n\r\n    L, U, P, Q, r = LU_rang(A, pivoting)\r\n    \r\n    print_matrix_str(A)\r\n    println()\r\n    print_matrix_str(L)\r\n    println()\r\n    print_matrix_str(U)\r\n    println()\r\n    println(\"Ранг матрицы: $r \", isapprox(r, rank(A)))\r\n    check(A, L, U, P, Q)\r\n\r\n    # Решение СЛАУ\r\n    b = randn(n)\r\n    x = solveLU_ex(A, b)\r\n    if x !== nothing\r\n        println(\"Проверка Ax ≈ b: \", isapprox(A * x, b))\r\n    else\r\n        println(\"Система несовместна\")\r\n    end\r\nend\r\n\r\ndemo2(10)"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "——————————————————————————————————————————————————\nРазмерность матрицы: 10, выбор главного элемента: column\n    -0.904     -0.904      0.352     -0.842     -0.777     -0.584     -0.003      0.414      0.884      0.308\n    -0.858     -0.858     -0.816      0.113      0.250      1.801     -0.413      1.991     -0.205      0.137\n     1.586      1.586      1.705      0.618      0.626     -0.147      1.105     -0.516     -0.775      0.054\n    -1.183     -1.183     -0.353      1.473      0.808      1.915      1.665      1.218      0.688      1.148\n     0.592      0.592     -0.720      0.397      0.111     -0.009     -0.582     -1.428     -0.555     -0.542\n     2.125      2.125      1.783      0.452      1.535     -0.940     -1.084      1.087      0.797     -1.750\n    -2.102     -2.102     -1.210      2.197      0.074     -0.860     -0.625      0.036     -0.291      0.445\n    -1.572     -1.572     -0.004      0.649     -1.046     -1.777      0.292     -0.197      1.678     -1.446\n     0.762      0.762      0.499      0.209      1.161     -0.266     -0.964      0.585     -0.793      0.391\n     0.088      0.088     -1.254     -1.182     -0.305      0.893      0.088     -0.860      0.349      0.433\n\n     1.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000\n    -0.740      1.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000\n     0.279      0.020      1.000      0.000      0.000      0.000      0.000      0.000      0.000\n    -0.989      0.469      0.052      1.000      0.000      0.000      0.000      0.000      0.000\n     0.746     -0.496     -0.826      0.450      1.000      0.000      0.000      0.000      0.000\n    -0.557     -0.064     -0.582      0.891     -0.061      1.000      0.000      0.000      0.000\n    -0.404      0.208      0.297      0.008     -0.647      0.893      1.000      0.000      0.000\n    -0.425      0.159     -0.725     -0.288     -0.056     -0.286      0.168      1.000      0.000\n     0.359     -0.372     -0.280      0.223     -0.143     -0.323     -0.386      0.516      1.000\n     0.042     -0.184      0.873     -0.571     -0.569     -0.117     -0.674     -0.543     -0.169\n\n     2.125     -1.750      1.783      0.452      1.535     -0.940     -1.084      1.087      0.797      2.125\n     0.000     -2.740      1.315      0.984      0.090     -2.472     -0.510      0.607      2.267      0.000\n     0.000      0.000     -1.243      0.252     -0.319      0.301     -0.270     -1.743     -0.822      0.000\n     0.000      0.000      0.000      2.170      1.566     -0.645     -1.444      0.916     -0.525      0.000\n     0.000      0.000      0.000      0.000     -1.443     -0.133      2.087     -2.877     -0.687      0.000\n    -0.000     -0.000      0.000      0.000      0.000      1.977      2.284     -0.143      1.224     -0.000\n     0.000      0.000      0.000      0.000      0.000      0.000     -1.342      1.082     -1.643      0.000\n     0.000      0.000      0.000      0.000      0.000      0.000      0.000     -0.604      0.702     -0.000\n     0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000     -1.046      0.000\n\nРанг матрицы: 9 true\nПроверка: LU ≈ P*A*Q: true\nСистема несовместна\n"
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    }
+  ]
+}

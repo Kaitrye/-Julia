@@ -1,0 +1,327 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {
+    "kernelspec": {
+      "name": "ijulia-1.9",
+      "display_name": "IJulia 1.9.3",
+      "language": "julia"
+    },
+    "language_info": {
+      "name": "julia",
+      "file_extension": ".jl",
+      "version": "1.9.3"
+    },
+    "engee": {}
+  },
+  "cells": [
+    {
+      "id": "fa69524d",
+      "cell_type": "code",
+      "source": [
+        "using LinearAlgebra, Random # Подключаем библиотеки"
+      ],
+      "execution_count": 0,
+      "outputs": [],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "b145f78b",
+      "cell_type": "markdown",
+      "source": [
+        "Реализуем QR-разложение с помощью двух методов: метод вращений и метод отражений"
+      ],
+      "attachments": {},
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false
+        }
+      }
+    },
+    {
+      "id": "7d251f8f",
+      "cell_type": "code",
+      "source": [
+        "function QR_decomp(A::Matrix{Float64}, method::Symbol=:Хаусхолдер)\r\n    m, n = size(A)\r\n    R = copy(A)\r\n    Q = Matrix{Float64}(I, m, m)\r\n\r\n    if method == :Хаусхолдер\r\n        # Метод отражений Хаусхолдера\r\n        v_full = Vector{Float64}(undef, m)\r\n\r\n        for k in 1:min(m-1, n)\r\n            x = @view R[k:end, k]\r\n            x_norm = norm(x)\r\n\r\n            # пропускаем нулевые столбцы\r\n            if isapprox(x_norm, 0.0)\r\n                continue\r\n            end\r\n\r\n            e = zeros(length(x))\r\n            e[1] = sign(x[1]) * x_norm\r\n            v = @view v_full[1:length(x)]\r\n            v .= x - e \r\n            \r\n            v_norm = norm(v)\r\n            if isapprox(v_norm, 0.0)\r\n                continue\r\n            end\r\n            v ./= v_norm \r\n\r\n            # Обновляем R и Q\r\n            R_sub = @view R[k:end, k:n]\r\n            R_sub .-= 2 .* v .* (v' * R_sub)\r\n\r\n            Q_sub = @view Q[:, k:end]\r\n            Q_sub .-= 2 .* (Q_sub * v) .* v'    \r\n        end\r\n\r\n    elseif method == :Гивенс\r\n        # Метод вращений Гивенса\r\n        for j in 1:n\r\n            for i in m:-1:j+1\r\n                a, b = R[i-1, j], R[i, j]\r\n                r = hypot(a, b)\r\n\r\n                if isapprox(r, 0.0)\r\n                    continue\r\n                end\r\n\r\n                c = a / r\r\n                s = -b / r\r\n\r\n                # Обновляем R и Q\r\n                G = [c -s; s c]\r\n                R_sub = @view R[i-1:i, j:n]\r\n                R_sub .= G * R_sub\r\n\r\n                Q_sub = @view Q[:, i-1:i]\r\n                Q_sub .= Q_sub * G'\r\n            end\r\n        end\r\n    end\r\n\r\n    return Q, R\r\nend\r\n"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "QR_decomp (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 2
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "c693ddb1",
+      "cell_type": "code",
+      "source": [
+        "using Printf\r\n\r\nfunction print_matrix_str(A)\r\n    for row in eachrow(A)\r\n        println(join([@sprintf(\"%10.3f\", x) for x in row], \" \"))\r\n    end\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "print_matrix_str (generic function with 1 method)"
+          },
+          "metadata": {},
+          "execution_count": 3
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "8b67e5b7",
+      "cell_type": "code",
+      "source": [
+        "# Решение СЛАУ Ax = b\r\nfunction solveQR(A::Matrix{Float64}, b::Vector{Float64}, method::Symbol=:Хаусхолдер)\r\n    Q, R = QR_decomp(A, method)\r\n\r\n    y = Q' * b\r\n\r\n    n = length(b)\r\n    x = zeros(Float64, n)\r\n    for i in n:-1:1\r\n        x[i] = (y[i] - sum(R[i,i+1:end] .* x[i+1:end])) / R[i,i]\r\n    end\r\n\r\n    return x\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "solveQR (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 4
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "43afa2c7",
+      "cell_type": "code",
+      "source": [
+        "function demo1(n::Int=5, m::Int=n; method::Symbol=:Хаусхолдер)\r\n    println(\"—\"^50)\r\n    println(\"Размерность матрицы: [$n, $m], метод: $method\")\r\n\r\n    A = randn(n, m)\r\n\r\n    Q, R = QR_decomp(A, method)\r\n    #print_matrix_str(Q)\r\n    #println()\r\n    #print_matrix_str(R)\r\n    println(\"Проверка A ≈ Q * R \", isapprox(Q * R, A, atol=1e-8))\r\n\r\n    # Проверка решения СЛАУ\r\n    A = randn(n, n)\r\n    b = randn(n)\r\n    x = solveQR(A, b, method)\r\n    println(\"Проверка Ax ≈ b: \", isapprox(A * x, b))\r\n\r\n    println(\"—\"^50)\r\nend\r\n\r\ndemo1(10, method = :Гивенс)"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "——————————————————————————————————————————————————\nРазмерность матрицы: [10, 10], метод: Хаусхолдер\n     0.474      0.570     -0.100     -0.394     -0.402      0.153      0.013     -0.107     -0.285     -0.087\n     0.313     -0.211      0.227      0.149     -0.252     -0.086      0.320     -0.496      0.447     -0.406\n    -0.001      0.315      0.012      0.593     -0.313      0.290      0.251      0.505      0.220      0.015\n     0.222      0.253      0.720     -0.128      0.142     -0.363     -0.205      0.261      0.245      0.173\n     0.296      0.184     -0.275      0.177      0.529     -0.192     -0.117      0.213     -0.030     -0.629\n     0.189     -0.005     -0.141      0.373     -0.183      0.073     -0.814     -0.251      0.151      0.136\n     0.250     -0.006     -0.127      0.414     -0.068     -0.615      0.250     -0.125     -0.409      0.348\n    -0.360     -0.054     -0.146     -0.164     -0.552     -0.532     -0.187      0.269      0.060     -0.346\n     0.481     -0.367     -0.408     -0.284     -0.030     -0.047      0.067      0.366      0.396      0.298\n     0.285     -0.544      0.348      0.073     -0.182      0.218     -0.121      0.297     -0.509     -0.229\n\n     2.968     -1.096     -2.961     -0.525     -0.070     -1.460     -0.840     -0.253     -0.477      0.668\n     0.000      3.133      1.819     -0.298     -1.156     -0.476     -1.012     -2.807      0.610      0.234\n    -0.000      0.000      3.220     -0.621      0.102     -0.653     -0.634     -0.722     -0.243      1.979\n     0.000      0.000     -0.000     -2.404     -1.060      1.187     -0.312      1.165      0.520     -0.516\n     0.000      0.000     -0.000     -0.000      2.619      1.044     -0.030     -1.161      1.035      0.289\n     0.000      0.000      0.000      0.000      0.000      2.922     -0.054     -0.222     -1.606     -0.811\n     0.000      0.000      0.000      0.000      0.000      0.000      2.631     -1.113     -1.434      0.136\n    -0.000      0.000      0.000      0.000      0.000      0.000     -0.000      1.137     -1.864      0.326\n     0.000      0.000      0.000     -0.000      0.000      0.000      0.000     -0.000      0.985     -0.081\n     0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.539\nПроверка A ≈ Q * R true\nПроверка Ax ≈ b: true\n——————————————————————————————————————————————————\n"
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "0b4d2dc4",
+      "cell_type": "code",
+      "source": [
+        "function solveIter(A::Matrix{Float64}, b::Vector{Float64}, method::Symbol=:Якоби, max_iter::Int=10000, eps::Float64=1e-8)\r\n    n = length(b)\r\n    D = diag(A)\r\n    B = A - Diagonal(D)\r\n    x = zeros(n)\r\n\r\n    if any(D .== 0)\r\n        error(\"Матрица содержит нули на диагонали\")\r\n    end\r\n\r\n    k_est = errorEst(A, b, x, method=method, eps=eps)\r\n\r\n    if k_est != nothing\r\n        println(\"Априорная оценка: $k_est итераций\")\r\n    else\r\n        println(\"Априорная оценка: метод не сходится\")\r\n    end\r\n\r\n    for k in 1:max_iter\r\n        if method == :Якоби\r\n            x_new = (b - B * x) ./ D\r\n        elseif method == :Зейделя \r\n            x_new = copy(x)\r\n            for i in 1:length(x)\r\n                x_new[i] = (b[i] - (B * x_new)[i]) / D[i]\r\n            end\r\n        else\r\n            error(\"Неизвестный метод: $method\")\r\n        end    \r\n\r\n        if isapprox(norm(x_new - x), 0.0, atol=eps)\r\n            println(\"Метод $method сошёлся за $k итераций\")\r\n            return x_new\r\n        end\r\n\r\n        x = copy(x_new)\r\n    end\r\n\r\n    println(\"Метод $method не сошёлся за $max_iter итераций\")\r\n    return nothing\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "solveIter (generic function with 4 methods)"
+          },
+          "metadata": {},
+          "execution_count": 6
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "79c35471",
+      "cell_type": "code",
+      "source": [
+        "function errorEst(A::Matrix{Float64}, b::Vector{Float64}, x0::Vector{Float64}=zeros(length(b)); method::Symbol=:Якоби, eps::Float64=1e-8)\r\n    n = length(b)\r\n    D = Diagonal(diag(A))\r\n    B = A - D\r\n    L = tril(A, -1)  \r\n    U = triu(A, 1) \r\n\r\n    # Матрица перехода\r\n    if method == :Якоби\r\n        T = -inv(D) * B\r\n    elseif method == :Зейделя\r\n        T = -inv(D + L) * U\r\n    else\r\n        error(\"Неизвестный метод: $method\")\r\n    end\r\n\r\n    # Вычисление нормы\r\n    if all(abs.(diag(A)) .> sum(abs.(A), dims=2) .- abs.(diag(A)))\r\n        norm_T = norm(T, Inf)\r\n    else\r\n        norm_T = maximum(abs.(eigvals(T)))\r\n    end\r\n\r\n    if norm_T >= 1\r\n        return nothing\r\n    end\r\n\r\n    # Оценка числа итераций\r\n    initial_error = norm(b, Inf)\r\n    k = ceil(log(eps / initial_error) / log(norm_T))\r\n\r\n    return Int(k)\r\nend"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": "errorEst (generic function with 2 methods)"
+          },
+          "metadata": {},
+          "execution_count": 7
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    },
+    {
+      "id": "c61ec86a",
+      "cell_type": "code",
+      "source": [
+        "function demo2(n::Int=5)\r\n    println(\"—\"^50)\r\n    \r\n    # Матрица с диагональным преобладанием\r\n    println()\r\n    println(\"-\"^50)\r\n    A = rand(n, n) .* 2 .- 1\r\n    A = A + n*I\r\n\r\n    @assert all(abs.(diag(A)) .> sum(abs.(A), dims=2) .- abs.(diag(A))) \"Матрица не имеет диагональное преобладание!\"\r\n    \r\n    print(\"Матрица с диагональным преобладанием\\n\")\r\n    println(\"-\"^50)\r\n    println()\r\n\r\n    b = randn(n)\r\n\r\n    x = solveIter(A, b)\r\n    if x != nothing\r\n        println(\"Проверка Ax ≈ b: \", isapprox(A * x, b, atol=1e-6))\r\n    end\r\n\r\n    println()\r\n\r\n    x = solveIter(A, b, :Зейделя)\r\n    if x != nothing\r\n        println(\"Проверка Ax ≈ b: \", isapprox(A * x, b, atol=1e-6))\r\n    end\r\n\r\n    # Матрица положительно определенная без диагонального преобладания\r\n    println()\r\n    println(\"-\"^50)\r\n    A = randn(n, n)\r\n    A = A * A'\r\n\r\n    @assert isposdef(A) \"Матрица не положительно определенная!\"\r\n    @assert !all(abs.(diag(A)) .> sum(abs.(A), dims=2) .- abs.(diag(A))) \"Матрица имеет диагональное преобладание!\"\r\n    \r\n    print(\"Матрица положительно определенная без диагонального преобладания\\n\")\r\n    println(\"-\"^50)\r\n    println()\r\n\r\n    b = randn(n)\r\n\r\n    x = solveIter(A, b)\r\n    if x != nothing\r\n        println(\"Проверка Ax ≈ b: \", isapprox(A * x, b, atol=1e-6))\r\n    end\r\n\r\n    println()\r\n\r\n    x = solveIter(A, b, :Зейделя)\r\n    if x != nothing\r\n        println(\"Проверка Ax ≈ b: \", isapprox(A * x, b, atol=1e-6))\r\n    end\r\n\r\n    println()\r\n    println(\"—\"^50)\r\nend\r\n\r\ndemo2(5)"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "——————————————————————————————————————————————————\n\n--------------------------------------------------\nМатрица с диагональным преобладанием\n--------------------------------------------------\n\nАприорная оценка: 13 итераций\nМетод Якоби сошёлся за 14 итераций\nПроверка Ax ≈ b: true\n\nАприорная оценка: 14 итераций\nМетод Зейделя сошёлся за 10 итераций\nПроверка Ax ≈ b: true\n\n--------------------------------------------------\nМатрица положительно определенная без диагонального преобладания\n--------------------------------------------------\n\nАприорная оценка: метод не сходится\nМетод Якоби не сошёлся за 10000 итераций\n\nАприорная оценка: 492 итераций\nМетод Зейделя сошёлся за 476 итераций\nПроверка Ax ≈ b: true\n\n——————————————————————————————————————————————————\n"
+        }
+      ],
+      "metadata": {
+        "name": "Название секции",
+        "engee": {
+          "isDisplay": true,
+          "isParagraph": false,
+          "isClosedParagraph": false,
+          "amountHideCellsInside": 0,
+          "codeOutputView": "col",
+          "codeOutputHidden": false,
+          "outputInfo": {
+            "isExpanded": false,
+            "scrollTop": 0
+          },
+          "maskInfo": {
+            "isMaskVisible": true,
+            "isEditorVisible": true,
+            "isAutoplayActive": false
+          }
+        }
+      }
+    }
+  ]
+}
